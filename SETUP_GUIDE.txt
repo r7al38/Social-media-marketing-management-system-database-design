@@ -1,0 +1,369 @@
+# SMM Dashboard — Complete Setup Guide
+# For Replit + Low-Spec Devices (Windows 7 / 32-bit)
+# =====================================================
+
+# ═══════════════════════════════════════════════════
+# STEP 1 — FINAL PROJECT STRUCTURE
+# ═══════════════════════════════════════════════════
+
+smm-dashboard/                  ← ROOT (upload this entire folder to Replit)
+│
+├── .replit                     ← Replit config (run command)
+├── replit.nix                  ← Replit environment (Node 18 + build tools)
+├── package.json                ← Root dependencies + scripts
+├── .env.example                ← Template — copy to .env and fill in
+├── .gitignore
+│
+├── backend/                    ← All server-side code
+│   ├── server.js               ← Main entry point ★
+│   ├── scheduler.js            ← Cron jobs (report + backup)
+│   │
+│   ├── database/
+│   │   ├── connection.js       ← SQLite singleton
+│   │   ├── init.js             ← Creates DB + runs schema on first boot
+│   │   ├── backup.js           ← Backup utility
+│   │   └── schema.sql          ← All CREATE TABLE statements ★
+│   │
+│   ├── middleware/
+│   │   ├── auth.js             ← JWT verify + role check
+│   │   ├── errorHandler.js     ← Global 404 + 500 handler
+│   │   └── validate.js         ← express-validator runner
+│   │
+│   ├── routes/
+│   │   ├── auth.js
+│   │   ├── clients.js
+│   │   ├── services.js
+│   │   ├── subscriptions.js
+│   │   ├── socialAccounts.js
+│   │   ├── orders.js
+│   │   ├── tasks.js
+│   │   ├── invoices.js
+│   │   └── admin.js            ← Report preview/send + backup API
+│   │
+│   ├── reports/
+│   │   ├── reportData.js       ← SQL aggregation for weekly report
+│   │   └── telegramSender.js   ← Format + send to Telegram
+│   │
+│   └── utils/
+│       ├── activityLog.js
+│       ├── crypto.js           ← AES-256 for social passwords
+│       ├── logger.js           ← Winston logger
+│       └── response.js         ← success() / error() helpers
+│
+├── frontend/                   ← React source (only needed to build)
+│   ├── package.json
+│   ├── vite.config.js
+│   ├── tailwind.config.js
+│   ├── postcss.config.js
+│   ├── index.html
+│   ├── dist/                   ← ★ Built output — Express serves this
+│   └── src/
+│       ├── main.jsx
+│       ├── App.jsx
+│       ├── index.css
+│       ├── api/client.js
+│       ├── context/
+│       │   ├── AuthContext.jsx
+│       │   └── ToastContext.jsx
+│       ├── components/
+│       │   ├── Layout/
+│       │   │   ├── Layout.jsx
+│       │   │   ├── Sidebar.jsx
+│       │   │   └── Topbar.jsx
+│       │   ├── Kanban/
+│       │   │   └── KanbanBoard.jsx
+│       │   └── ui/
+│       │       └── index.jsx
+│       └── pages/
+│           ├── Login.jsx
+│           ├── Dashboard.jsx
+│           ├── Services.jsx
+│           ├── Orders.jsx
+│           ├── Tasks.jsx
+│           ├── Invoices.jsx
+│           └── Clients/
+│               ├── ClientsList.jsx
+│               └── ClientProfile.jsx
+│
+└── database/                   ← ★ Created automatically on first run
+    ├── smm.db                  ← SQLite database file (auto-generated)
+    └── backups/                ← Backup files (auto-generated)
+
+
+# ═══════════════════════════════════════════════════
+# STEP 2 — FILE PLACEMENT (WHERE EACH FILE GOES)
+# ═══════════════════════════════════════════════════
+
+Files you got from our build sessions → where to place them:
+
+  FILENAME                    →  PLACE AT
+  ─────────────────────────────────────────────────
+  server.js (NEW version)     →  backend/server.js
+  scheduler.js                →  backend/scheduler.js
+  schema.sql                  →  backend/database/schema.sql
+  connection.js               →  backend/database/connection.js
+  init.js                     →  backend/database/init.js
+  backup.js                   →  backend/database/backup.js
+  auth.js (middleware)        →  backend/middleware/auth.js
+  errorHandler.js             →  backend/middleware/errorHandler.js
+  validate.js                 →  backend/middleware/validate.js
+  auth.js (route)             →  backend/routes/auth.js
+  clients.js                  →  backend/routes/clients.js
+  services.js                 →  backend/routes/services.js
+  subscriptions.js            →  backend/routes/subscriptions.js
+  socialAccounts.js           →  backend/routes/socialAccounts.js
+  orders.js                   →  backend/routes/orders.js
+  tasks.js                    →  backend/routes/tasks.js
+  invoices.js                 →  backend/routes/invoices.js
+  admin.js                    →  backend/routes/admin.js
+  reportData.js               →  backend/reports/reportData.js
+  telegramSender.js           →  backend/reports/telegramSender.js
+  activityLog.js              →  backend/utils/activityLog.js
+  crypto.js                   →  backend/utils/crypto.js
+  logger.js                   →  backend/utils/logger.js
+  response.js                 →  backend/utils/response.js
+  App.jsx                     →  frontend/src/App.jsx
+  main.jsx                    →  frontend/src/main.jsx
+  index.css                   →  frontend/src/index.css
+  client.js (NEW version)     →  frontend/src/api/client.js
+  AuthContext.jsx             →  frontend/src/context/AuthContext.jsx
+  ToastContext.jsx            →  frontend/src/context/ToastContext.jsx
+  Layout.jsx                  →  frontend/src/components/Layout/Layout.jsx
+  Sidebar.jsx                 →  frontend/src/components/Layout/Sidebar.jsx
+  Topbar.jsx                  →  frontend/src/components/Layout/Topbar.jsx
+  KanbanBoard.jsx             →  frontend/src/components/Kanban/KanbanBoard.jsx
+  ui/index.jsx                →  frontend/src/components/ui/index.jsx
+  Login.jsx                   →  frontend/src/pages/Login.jsx
+  Dashboard.jsx               →  frontend/src/pages/Dashboard.jsx
+  Services.jsx                →  frontend/src/pages/Services.jsx
+  Orders.jsx                  →  frontend/src/pages/Orders.jsx
+  Tasks.jsx                   →  frontend/src/pages/Tasks.jsx
+  Invoices.jsx                →  frontend/src/pages/Invoices.jsx
+  ClientsList.jsx             →  frontend/src/pages/Clients/ClientsList.jsx
+  ClientProfile.jsx           →  frontend/src/pages/Clients/ClientProfile.jsx
+  vite.config.js (NEW)        →  frontend/vite.config.js
+  tailwind.config.js          →  frontend/tailwind.config.js
+  postcss.config.js           →  frontend/postcss.config.js
+  index.html                  →  frontend/index.html
+  frontend/package.json       →  frontend/package.json
+
+
+# ═══════════════════════════════════════════════════
+# STEP 3 — FRONTEND STRATEGY
+# ═══════════════════════════════════════════════════
+
+RECOMMENDATION: Static Build (Option 2) ✓
+
+Why:
+- You build the React app ONCE → it produces plain HTML/CSS/JS files in frontend/dist/
+- Express serves these static files directly — no Node running React
+- RAM usage drops significantly (no Vite dev server running 24/7)
+- One port (5000), one process — perfect for Replit's free tier
+- Works even on the weakest Replit container
+
+How it works after build:
+  Browser → https://your-repl.repl.co/
+          → Express serves frontend/dist/index.html
+          → Browser loads React app
+          → React calls /api/clients etc.
+          → Express answers from same server
+
+You only need to rebuild the frontend if you change the UI code.
+If you only change backend code, just restart the server — no rebuild needed.
+
+
+# ═══════════════════════════════════════════════════
+# STEP 4 — SERVER SETUP SUMMARY
+# ═══════════════════════════════════════════════════
+
+The new backend/server.js already handles everything:
+
+  ✓ Serves frontend/dist/ as static files
+  ✓ Any unknown URL → returns index.html (React Router works)
+  ✓ All API routes at /api/*
+  ✓ CORS: disabled in production (same origin), enabled for localhost:3000 in dev
+  ✓ SQLite: connected via backend/database/connection.js
+  ✓ Rate limiting: 20 login attempts/15min, 300 API calls/min
+  ✓ Helmet for security headers
+  ✓ If frontend/dist/ not found → shows helpful instructions page
+
+
+# ═══════════════════════════════════════════════════
+# STEP 5 — DATABASE SETUP
+# ═══════════════════════════════════════════════════
+
+schema.sql location:   backend/database/schema.sql
+Database file:         database/smm.db    ← created automatically
+
+How it works:
+  1. server.js calls initDatabase() before starting the HTTP server
+  2. init.js reads backend/database/schema.sql
+  3. If database/smm.db doesn't exist → SQLite creates it
+  4. schema.sql runs (CREATE TABLE IF NOT EXISTS → safe to run multiple times)
+  5. Default admin user is inserted (username: admin, password: Admin@1234)
+
+You never need to create the database manually.
+It is created fresh on the very first npm start.
+
+
+# ═══════════════════════════════════════════════════
+# STEP 6 — RUNNING THE PROJECT (EXACT STEPS)
+# ═══════════════════════════════════════════════════
+
+─── On Replit (recommended) ────────────────────────
+
+1. Create a new Replit → "Import from GitHub" or upload the folder as a ZIP
+
+2. Open the Replit Secrets tab (padlock icon on left sidebar)
+   Add these secrets one by one:
+     JWT_SECRET        →  (any long random string, 64+ chars)
+     ENCRYPTION_KEY    →  (exactly 32 characters)
+     TELEGRAM_BOT_TOKEN → (from @BotFather — can add later)
+     TELEGRAM_CHAT_ID  →  (from @userinfobot — can add later)
+
+3. Open the Replit Shell and run:
+     npm run build
+   (This installs frontend dependencies and builds React to frontend/dist/)
+   ⚠️  This takes 3-5 minutes on Replit free tier. Run once, not every time.
+
+4. Click the green RUN button (or type in shell):
+     npm start
+
+5. Open the Replit URL shown in the preview panel.
+   Default login: admin / Admin@1234
+   ⚠️  CHANGE THE PASSWORD immediately after first login.
+
+─── On Local Machine (if you ever test locally) ────
+
+   node -e "console.log(require('crypto').randomBytes(32).toString('hex').slice(0,32))"
+   # Copy the output → use as ENCRYPTION_KEY
+
+   cp .env.example .env
+   # Edit .env and fill in JWT_SECRET and ENCRYPTION_KEY
+
+   npm run build     # build frontend once
+   npm start         # start server
+
+
+# ═══════════════════════════════════════════════════
+# STEP 7 — TELEGRAM SETUP
+# ═══════════════════════════════════════════════════
+
+1. Create a bot:
+   - Open Telegram → search @BotFather
+   - Send: /newbot
+   - Follow prompts → copy the TOKEN it gives you
+
+2. Get your Chat ID:
+   - Search @userinfobot in Telegram
+   - Send any message → it replies with your ID (a number like 123456789)
+
+3. Add to Replit Secrets:
+     TELEGRAM_BOT_TOKEN  =  1234567890:ABCdef...
+     TELEGRAM_CHAT_ID    =  123456789
+
+4. Start a chat with your bot (search it by name, send /start)
+   This is required — Telegram bots can't message users who haven't started them first.
+
+5. Test without waiting for Sunday:
+   - Preview (no send):  GET  /api/admin/report/preview
+   - Send immediately:   POST /api/admin/report/send
+
+   Via the browser (admin only — you must be logged in):
+     https://your-repl.repl.co/api/admin/report/preview
+   
+   Or use curl from Replit shell:
+     TOKEN="paste your JWT token here"
+     curl -X POST https://your-repl.repl.co/api/admin/report/send \
+          -H "Authorization: Bearer $TOKEN"
+
+6. Automatic schedule:
+   - Reports sent: Every Sunday at 09:00 UTC (controlled by REPORT_CRON secret)
+   - Change schedule: set REPORT_CRON secret to any cron expression
+     e.g.  "0 8 * * 1"  = every Monday at 08:00 UTC
+
+⚠️  Replit free tier sleeps after inactivity.
+    Use UptimeRobot (free) to ping /api/health every 5 minutes to keep it alive.
+    URL to monitor: https://your-repl.repl.co/api/health
+
+
+# ═══════════════════════════════════════════════════
+# STEP 8 — BACKUP SYSTEM
+# ═══════════════════════════════════════════════════
+
+Where backups are stored:
+  database/backups/smm-backup-2024-01-14T09-00-00-000Z.db
+  (one file per backup, timestamped)
+
+Automatic backup:
+  Runs every day at 02:00 UTC (set BACKUP_CRON secret to change)
+
+Manual backup via API (admin only):
+  POST /api/admin/backup          → creates backup now, returns filename
+  GET  /api/admin/backups         → lists all backup files + sizes
+  DELETE /api/admin/backups/:name → deletes a specific backup
+
+Manual backup via shell:
+  npm run db:backup
+
+⚠️  Replit free tier has limited disk space (~500MB).
+    BACKUP_MAX_FILES is set to 30 by default.
+    With a small database, 30 backups ≈ a few MB total — fine.
+
+Download a backup to your PC:
+  In Replit file browser → navigate to database/backups/ → right-click → Download
+
+
+# ═══════════════════════════════════════════════════
+# STEP 9 — LOW-SPEC DEVICE OPTIMIZATION
+# ═══════════════════════════════════════════════════
+
+─── The setup already optimized for Replit free tier ───────
+
+✓ Single process (no separate frontend server)
+✓ Static files served by Express (no Vite, no webpack in production)
+✓ SQLite (zero server overhead vs Postgres/MySQL)
+✓ WAL journal mode enabled (faster writes, less locking)
+✓ SQLite cache set to 32MB (speeds up queries)
+✓ Morgan logging skips health check pings (less noise)
+
+─── Additional tips ────────────────────────────────────────
+
+1. Never run `npm run dev` on Replit — it starts the Vite dev server
+   which uses ~300MB RAM. Always use `npm start` in production mode.
+
+2. If the Repl runs out of memory during `npm run build`:
+   In Replit Shell, run in two steps instead of one:
+     cd frontend && npm install     ← step 1
+     npm run build                  ← step 2
+
+3. If better-sqlite3 fails to install (native module):
+   The replit.nix file includes gcc and python3 which are required.
+   If it still fails, try: npm rebuild better-sqlite3
+
+4. Replit free tier sleeps after ~30 minutes of inactivity.
+   Telegram cron jobs WON'T fire if the Repl is asleep.
+   Solution: use UptimeRobot free plan to ping /api/health every 5 min.
+   Sign up at uptimerobot.com → New Monitor → HTTP(s) → paste your URL.
+
+5. Keep the database small:
+   - SQLite performs well up to millions of rows for this use case
+   - If you add many social accounts, consider pruning old activity_log rows monthly:
+       DELETE FROM activity_log WHERE created_at < date('now', '-90 days');
+
+─── Workflow for daily use ─────────────────────────────────
+
+  Regular use:
+    → Open Replit → click RUN → open the URL → done
+
+  After changing backend code:
+    → Edit the file in Replit → click RUN again → no rebuild needed
+
+  After changing frontend code:
+    → Edit the file → open Shell → run:
+        cd frontend && npm run build
+    → Then click RUN (or it auto-restarts if already running)
+
+  Deploy to always-on:
+    → Upgrade to Replit Core ($25/mo) for 24/7 uptime
+    → Or deploy the backend folder to Railway.app (free tier, always on)
