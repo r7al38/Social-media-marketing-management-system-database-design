@@ -1,22 +1,28 @@
 import { Outlet, useLocation } from 'react-router-dom';
-import Sidebar from './sidebar.jsx';
-import Topbar  from './topbar.jsx';
+import Sidebar from './Sidebar.jsx';
+import Topbar  from './Topbar.jsx';
 
 const TITLES = {
-  '/dashboard': 'Dashboard',
-  '/clients':   'Clients',
-  '/services':  'Services',
-  '/orders':    'Orders',
-  '/tasks':     'Tasks',
-  '/invoices':  'Invoices',
-  '/reports':   'Reports',
-  '/profile':   'Profile',
-  '/settings':   'Settings',
+  '/dashboard':     'Dashboard',
+  '/clients':       'Clients',
+  '/services':      'Services',
+  '/orders':        'Orders',
+  '/tasks':         'Tasks',
+  '/invoices':      'Invoices',
+  '/reports':       'Reports',
+  '/profile':       'My Profile',
+  '/settings':      'Settings',
+  '/notifications': 'Notifications',
 };
 
 export default function Layout() {
   const { pathname } = useLocation();
-  const title = TITLES[pathname] || (pathname.includes('/profile') ? 'Client Profile' : 'Dashboard');
+
+  let title = TITLES[pathname];
+  if (!title) {
+    if (pathname.startsWith('/clients/')) title = 'Client Profile';
+    else title = 'Dashboard';
+  }
 
   return (
     <div className="flex h-screen overflow-hidden bg-surface">
