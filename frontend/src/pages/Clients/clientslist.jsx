@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Search, Users, ExternalLink, Phone, Mail } from 'lucide-react';
+import { Plus, Search, Users, ExternalLink, Phone, Mail, Trash2 } from 'lucide-react';
 import { clientsApi } from '../../api/client.js';
-import { useToast }   from '../../context/toastcontext.jsx';
+import { useToast }   from '../../context/ToastContext.jsx';
+import { egp }        from '../../utils/currency.js';
 import {
   Badge, Button, Modal, Input, Select, Textarea,
   EmptyState, Spinner,
@@ -11,8 +12,8 @@ import {
 const TYPES = ['cafe', 'restaurant', 'company', 'other'];
 
 export default function ClientsList() {
-  const navigate = useNavigate();
-  const { toast } = useToast();
+  const navigate   = useNavigate();
+  const { toast }  = useToast();
   const [clients,  setClients]  = useState([]);
   const [meta,     setMeta]     = useState({ total: 0, pages: 1 });
   const [loading,  setLoading]  = useState(true);
@@ -28,30 +29,37 @@ export default function ClientsList() {
     clientsApi.list({ page, limit: 12, search: search || undefined, type: filter || undefined })
       .then(res => {
         setClients(res.data.data || []);
-        setMeta(res.data.meta || { total: 0, pages: 1 });
+        setMeta(res.data.meta   || { total: 0, pages: 1 });
       })
       .catch(console.error)
       .finally(() => setLoading(false));
   }, [page, search, filter]);
 
   useEffect(() => { load(); }, [load]);
-
-  // Debounce search
-  useEffect(() => { const t = setTimeout(load, 400); return () => clearTimeout(t); }, [search]);
+  useEffect(() => { const t = setTimeout(load, 400); return () => clearTimeout(t); }, [search]); // eslint-disable-line
 
   const handleCreate = async () => {
     if (!form.business_name.trim()) return;
     setSaving(true);
     try {
       await clientsApi.create(form);
-      toast({ type: 'success', message: 'Client created successfully!' });
+      toast({ type: 'success', message: 'Client created!' });
       setModal(false);
       setForm({ business_name: '', type: 'cafe', phone: '', email: '', address: '', notes: '' });
       load();
     } catch (err) {
       toast({ type: 'error', message: err.response?.data?.message || 'Failed to create client' });
-    } finally {
-      setSaving(false);
+    } finally { setSaving(false); }
+  };
+
+  const handleDelete = async (client) => {
+    if (!window.confirm(`Delete "${client.business_name}"? This cannot be undone.`)) return;
+    try {
+      await clientsApi.remove(client.id);
+      toast({ type: 'success', message: 'Client removed' });
+      load();
+    } catch (err) {
+      toast({ type: 'error', message: err.response?.data?.message || 'Failed to delete client' });
     }
   };
 
@@ -72,10 +80,12 @@ export default function ClientsList() {
           <select
             value={filter}
             onChange={e => { setFilter(e.target.value); setPage(1); }}
-            className="input w-36"
+            className="input w-36 cursor-pointer"
           >
             <option value="">All Types</option>
-            {TYPES.map(t => <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>)}
+            {TYPES.map(t => (
+              <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>
+            ))}
           </select>
         </div>
         <Button onClick={() => setModal(true)} icon={<Plus size={15} />}>
@@ -83,22 +93,31 @@ export default function ClientsList() {
         </Button>
       </div>
 
-      {/* Summary */}
       <p className="text-xs text-muted">
-        Showing <span className="font-600 text-gray-700">{clients.length}</span> of <span className="font-600 text-gray-700">{meta.total}</span> clients
+        Showing <span className="font-600 text-gray-700">{clients.length}</span> of{' '}
+        <span className="font-600 text-gray-700">{meta.total}</span> clients
       </p>
 
       {/* Grid */}
-      {loading ? <Spinner /> : clients.length === 0
-        ? <EmptyState icon={<Users size={40} />} title="No clients found" description="Create your first client to get started." action={<Button onClick={() => setModal(true)} icon={<Plus size={14} />}>Add Client</Button>} />
-        : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-            {clients.map(client => (
-              <ClientCard key={client.id} client={client} onView={() => navigate(`/clients/${client.id}/profile`)} />
-            ))}
-          </div>
-        )
-      }
+      {loading ? <Spinner /> : clients.length === 0 ? (
+        <EmptyState
+          icon={<Users size={40} />}
+          title="No clients found"
+          description="Create your first client to get started."
+          action={<Button onClick={() => setModal(true)} icon={<Plus size={14} />}>Add Client</Button>}
+        />
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+          {clients.map(client => (
+            <ClientCard
+              key={client.id}
+              client={client}
+              onView={() => navigate(`/clients/${client.id}/profile`)}
+              onDelete={() => handleDelete(client)}
+            />
+          ))}
+        </div>
+      )}
 
       {/* Pagination */}
       {meta.pages > 1 && (
@@ -107,8 +126,10 @@ export default function ClientsList() {
             <button
               key={p}
               onClick={() => setPage(p)}
-              className={`w-8 h-8 text-xs font-600 rounded-lg transition-colors
-                          ${p === page ? 'bg-primary text-white' : 'bg-white border border-border text-gray-600 hover:bg-surface'}`}
+              className={`w-8 h-8 text-xs font-600 rounded-lg transition-colors cursor-pointer
+                          ${p === page
+                            ? 'bg-primary text-white'
+                            : 'bg-white border border-border text-gray-600 hover:bg-surface'}`}
             >
               {p}
             </button>
@@ -119,21 +140,28 @@ export default function ClientsList() {
       {/* Create Modal */}
       <Modal open={modal} onClose={() => setModal(false)} title="New Client">
         <div className="space-y-4">
-          <Input label="Business Name *" placeholder="e.g. Café Roma" value={form.business_name}
+          <Input label="Business Name *" placeholder="e.g. Café Roma"
+                 value={form.business_name}
                  onChange={e => setForm(f => ({ ...f, business_name: e.target.value }))} />
           <Select label="Type *" value={form.type}
                   onChange={e => setForm(f => ({ ...f, type: e.target.value }))}>
-            {TYPES.map(t => <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>)}
+            {TYPES.map(t => (
+              <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>
+            ))}
           </Select>
           <div className="grid grid-cols-2 gap-3">
-            <Input label="Phone" placeholder="+1 555 0000" value={form.phone}
+            <Input label="Phone" placeholder="+20 100 000 0000"
+                   value={form.phone}
                    onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} />
-            <Input label="Email" type="email" placeholder="hello@business.com" value={form.email}
+            <Input label="Email" type="email" placeholder="hello@business.com"
+                   value={form.email}
                    onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
           </div>
-          <Input label="Address" placeholder="Street, City" value={form.address}
+          <Input label="Address" placeholder="Street, City"
+                 value={form.address}
                  onChange={e => setForm(f => ({ ...f, address: e.target.value }))} />
-          <Textarea label="Notes" placeholder="Internal notes…" value={form.notes}
+          <Textarea label="Notes" placeholder="Internal notes…"
+                    value={form.notes}
                     onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} />
           <div className="flex justify-end gap-2 pt-2 border-t border-border">
             <Button variant="secondary" onClick={() => setModal(false)}>Cancel</Button>
@@ -147,11 +175,24 @@ export default function ClientsList() {
   );
 }
 
-function ClientCard({ client, onView }) {
+// ── Client Card ──────────────────────────────────────────────
+function ClientCard({ client, onView, onDelete }) {
   const typeColors = { cafe: 'cafe', restaurant: 'restaurant', company: 'company', other: 'other' };
+
   return (
-    <div className="card hover:shadow-card-hover transition-all group">
-      <div className="flex items-start justify-between mb-3">
+    <div className="card hover:shadow-card-hover transition-all group relative">
+      {/* Delete button — top right, visible on hover */}
+      <button
+        onClick={e => { e.stopPropagation(); onDelete(); }}
+        title="Delete client"
+        className="absolute top-3 right-3 w-7 h-7 flex items-center justify-center
+                   rounded-lg text-gray-300 hover:text-danger hover:bg-danger-light
+                   opacity-0 group-hover:opacity-100 transition-all cursor-pointer z-10"
+      >
+        <Trash2 size={13} />
+      </button>
+
+      <div className="flex items-start justify-between mb-3 pr-6">
         <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-primary to-purple
                         flex items-center justify-center text-white font-700 text-lg shadow-sm">
           {client.business_name?.[0]?.toUpperCase() || '?'}
@@ -169,12 +210,13 @@ function ClientCard({ client, onView }) {
         )}
         {client.email && (
           <div className="flex items-center gap-2 text-[11px] text-muted">
-            <Mail size={11} /> <span className="truncate">{client.email}</span>
+            <Mail size={11} />
+            <span className="truncate">{client.email}</span>
           </div>
         )}
       </div>
 
-      {/* KPI row */}
+      {/* KPI strip */}
       <div className="flex gap-3 mt-4 pt-4 border-t border-border">
         <div className="text-center">
           <p className="text-sm font-700 text-primary">{client.total_orders ?? 0}</p>
@@ -185,14 +227,15 @@ function ClientCard({ client, onView }) {
           <p className="text-[10px] text-muted">Tasks</p>
         </div>
         <div className="text-center">
-          <p className="text-sm font-700 text-danger">${client.unpaid_amount ?? '0'}</p>
+          <p className="text-sm font-700 text-danger">{egp(client.unpaid_amount)}</p>
           <p className="text-[10px] text-muted">Unpaid</p>
         </div>
+        {/* View profile — always visible */}
         <div className="flex-1 flex justify-end items-end">
           <button
             onClick={onView}
             className="flex items-center gap-1 text-xs text-primary font-500
-                       hover:underline opacity-0 group-hover:opacity-100 transition-opacity"
+                       hover:underline cursor-pointer"
           >
             View <ExternalLink size={11} />
           </button>
