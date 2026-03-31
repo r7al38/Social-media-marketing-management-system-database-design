@@ -1,5 +1,8 @@
 import axios from 'axios';
 
+// In production: frontend is served from Express on :5000, so /api = same origin.
+// In development: Vite proxy forwards /api → :5000, so /api still works.
+// We never hardcode a hostname — this works on Replit automatically.
 const api = axios.create({
   baseURL: '/api',
   timeout: 15000,
@@ -13,7 +16,7 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// Global response error handling
+// Global 401 handler
 api.interceptors.response.use(
   (res) => res,
   (err) => {
@@ -25,14 +28,14 @@ api.interceptors.response.use(
   }
 );
 
-// ── Auth ────────────────────────────────────────────────────
+// ── Auth ─────────────────────────────────────────────────────
 export const authApi = {
   login:          (data) => api.post('/auth/login', data),
   me:             ()     => api.get('/auth/me'),
   changePassword: (data) => api.put('/auth/change-password', data),
 };
 
-// ── Clients ─────────────────────────────────────────────────
+// ── Clients ──────────────────────────────────────────────────
 export const clientsApi = {
   list:    (params) => api.get('/clients', { params }),
   get:     (id)     => api.get(`/clients/${id}`),
@@ -52,7 +55,7 @@ export const servicesApi = {
   remove: (id)     => api.delete(`/services/${id}`),
 };
 
-// ── Subscriptions ─────────────────────────────────────────────
+// ── Subscriptions ────────────────────────────────────────────
 export const subscriptionsApi = {
   list:   (params) => api.get('/subscriptions', { params }),
   create: (data)   => api.post('/subscriptions', data),
@@ -60,7 +63,7 @@ export const subscriptionsApi = {
   remove: (id)     => api.delete(`/subscriptions/${id}`),
 };
 
-// ── Social Accounts ───────────────────────────────────────────
+// ── Social Accounts ──────────────────────────────────────────
 export const socialApi = {
   list:     (params) => api.get('/social-accounts', { params }),
   get:      (id)     => api.get(`/social-accounts/${id}`),
@@ -72,12 +75,12 @@ export const socialApi = {
 
 // ── Orders ───────────────────────────────────────────────────
 export const ordersApi = {
-  list:       (params)  => api.get('/orders', { params }),
-  get:        (id)      => api.get(`/orders/${id}`),
-  create:     (data)    => api.post('/orders', data),
-  update:     (id, d)   => api.put(`/orders/${id}`, d),
-  setStatus:  (id, d)   => api.patch(`/orders/${id}/status`, d),
-  remove:     (id)      => api.delete(`/orders/${id}`),
+  list:      (params) => api.get('/orders', { params }),
+  get:       (id)     => api.get(`/orders/${id}`),
+  create:    (data)   => api.post('/orders', data),
+  update:    (id, d)  => api.put(`/orders/${id}`, d),
+  setStatus: (id, d)  => api.patch(`/orders/${id}/status`, d),
+  remove:    (id)     => api.delete(`/orders/${id}`),
 };
 
 // ── Tasks ────────────────────────────────────────────────────
@@ -93,11 +96,32 @@ export const tasksApi = {
 
 // ── Invoices ─────────────────────────────────────────────────
 export const invoicesApi = {
-  list:   (params) => api.get('/invoices', { params }),
-  get:    (id)     => api.get(`/invoices/${id}`),
-  create: (data)   => api.post('/invoices', data),
-  update: (id, d)  => api.put(`/invoices/${id}`, d),
-  remove: (id)     => api.delete(`/invoices/${id}`),
+  list:    (params) => api.get('/invoices', { params }),
+  get:     (id)     => api.get(`/invoices/${id}`),
+  create:  (data)   => api.post('/invoices', data),
+  update:  (id, d)  => api.put(`/invoices/${id}`, d),
+  addItem: (id, d)  => api.post(`/invoices/${id}/items`, d),
+  remove:  (id)     => api.delete(`/invoices/${id}`),
+};
+
+// ── Admin ────────────────────────────────────────────────────
+export const adminApi = {
+  reportPreview: ()     => api.get('/admin/report/preview'),
+  reportSend:    ()     => api.post('/admin/report/send'),
+  backupNow:     ()     => api.post('/admin/backup'),
+  backupList:    ()     => api.get('/admin/backups'),
+  backupDelete:  (name) => api.delete(`/admin/backups/${name}`),
+};
+
+// ── Notifications ─────────────────────────────────────────────
+export const notificationsApi = {
+  list:    () => api.get('/notifications'),
+  readAll: () => api.post('/notifications/read-all'),
+};
+
+// ── Reports ───────────────────────────────────────────────────
+export const reportsApi = {
+  dashboard: () => api.get('/reports/dashboard'),
 };
 
 export default api;
