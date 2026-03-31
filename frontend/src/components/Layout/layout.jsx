@@ -10,6 +10,8 @@ const TITLES = {
   '/tasks':     'Tasks',
   '/invoices':  'Invoices',
   '/reports':   'Reports',
+  '/profile':   'Profile',
+  '/settings':   'Settings',
 };
 
 export default function Layout() {
