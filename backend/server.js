@@ -20,11 +20,13 @@ const authRoutes         = require('./routes/auth');
 const clientRoutes       = require('./routes/clients');
 const serviceRoutes      = require('./routes/services');
 const subscriptionRoutes = require('./routes/subscriptions');
-const socialRoutes       = require('./routes/socialaccounts');
+const socialRoutes       = require('./routes/socialAccounts');
 const orderRoutes        = require('./routes/orders');
 const taskRoutes         = require('./routes/tasks');
 const invoiceRoutes      = require('./routes/invoices');
 const adminRoutes        = require('./routes/admin');
+const notificationRoutes = require('./routes/notifications');
+const reportsRoutes      = require('./routes/reports');
 
 const app  = express();
 const PORT = process.env.PORT || 5000;
@@ -81,6 +83,8 @@ app.use('/api/orders',          orderRoutes);
 app.use('/api/tasks',           taskRoutes);
 app.use('/api/invoices',        invoiceRoutes);
 app.use('/api/admin',           adminRoutes);
+app.use('/api/notifications',   notificationRoutes);
+app.use('/api/reports',         reportsRoutes);
 
 // ── Health check ──────────────────────────────────────────────
 app.get('/api/health', (req, res) => {
