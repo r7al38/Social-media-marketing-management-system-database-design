@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Plus, ToggleLeft, ToggleRight, Trash2, Edit2 } from 'lucide-react';
 import { servicesApi } from '../api/client.js';
-import { useToast }    from '../context/toastcontext.jsx';
+import { useToast }    from '../context/ToastContext.jsx';
+import { egp }         from '../utils/currency.js';
 import { Badge, Button, Modal, Input, Select, Textarea, EmptyState, Spinner } from '../components/ui/index.jsx';
 
 const CATEGORIES = ['ads', 'growth', 'security', 'management'];
@@ -89,7 +90,7 @@ export default function Services() {
                       <p className="text-sm font-600 text-gray-800">{s.service_name}</p>
                       <p className="text-xs text-muted mt-1 line-clamp-2">{s.description || 'No description'}</p>
                     </div>
-                    <p className="text-lg font-700 text-primary ml-3">${s.price}</p>
+                    <p className="text-lg font-700 text-primary ml-3">{egp(s.price)}</p>
                   </div>
                   <div className="flex items-center justify-between mt-4 pt-3 border-t border-border">
                     <div className="flex items-center gap-3 text-xs text-muted">
@@ -120,7 +121,7 @@ export default function Services() {
                     onChange={e => setForm(f => ({ ...f, category: e.target.value }))}>
               {CATEGORIES.map(c => <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>)}
             </Select>
-            <Input type="number" label="Price ($)" min="0" step="0.01" value={form.price}
+            <Input type="number" label="Price (EGP)" min="0" step="0.01" value={form.price}
                    onChange={e => setForm(f => ({ ...f, price: e.target.value }))} />
           </div>
           <Textarea label="Description" value={form.description} placeholder="What does this service include?"
