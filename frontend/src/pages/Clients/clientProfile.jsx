@@ -10,13 +10,13 @@ import {
 import { format, parseISO, isPast, formatDistanceToNow } from 'date-fns';
 
 import { clientsApi, subscriptionsApi, socialApi, ordersApi, tasksApi, servicesApi } from '../../api/client.js';
-import { useToast } from '../../context/toastcontext.jsx';
+import { useToast } from '../../context/ToastContext.jsx';
+import { egp }      from '../../utils/currency.js';
 import { Badge, Button, ProgressBar, Modal, Input, Select, Textarea, EmptyState, Spinner } from '../../components/ui/index.jsx';
-import KanbanBoard from '../../components/Kanban/kanbanboard.jsx';
+import KanbanBoard from '../../components/Kanban/KanbanBoard.jsx';
 
-const fmt      = (d) => d ? format(parseISO(d), 'MMM d, yyyy') : '—';
-const currency = (n) => `$${Number(n || 0).toFixed(2)}`;
-const fromNow  = (d) => d ? formatDistanceToNow(parseISO(d), { addSuffix: true }) : null;
+const fmt     = (d) => d ? format(parseISO(d), 'MMM d, yyyy') : '—';
+const fromNow = (d) => d ? formatDistanceToNow(parseISO(d), { addSuffix: true }) : null;
 
 const PLATFORM_META = {
   Facebook:  { icon: <Facebook  size={15} />, color: 'text-blue-600',   bg: 'bg-blue-50',   border: 'border-blue-100' },
@@ -85,6 +85,9 @@ export default function ClientProfile() {
   const typeGradient = {
     cafe:       'from-amber-400 to-orange-500',
     restaurant: 'from-orange-400 to-red-500',
+    bakery:     'from-yellow-400 to-amber-500',
+    cake_shop:  'from-pink-400 to-rose-500',
+    store:      'from-teal-400 to-cyan-500',
     company:    'from-[#60A5FA] to-[#A78BFA]',
     other:      'from-gray-400 to-gray-600',
   }[client.type] || 'from-[#60A5FA] to-[#A78BFA]';
