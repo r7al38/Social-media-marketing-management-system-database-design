@@ -9,7 +9,11 @@ import {
   EmptyState, Spinner,
 } from '../../components/ui/index.jsx';
 
-const TYPES = ['cafe', 'restaurant', 'company', 'other'];
+const TYPES = ['cafe', 'restaurant', 'bakery', 'cake_shop', 'store', 'company', 'other'];
+const TYPE_LABEL = {
+  cafe: 'Café', restaurant: 'Restaurant', bakery: 'Bakery',
+  cake_shop: 'Cake Shop', store: 'Store', company: 'Company', other: 'Other',
+};
 
 export default function ClientsList() {
   const navigate   = useNavigate();
@@ -33,10 +37,25 @@ export default function ClientsList() {
       })
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, [page, search, filter]);
+  }, [page, filter]); // search excluded — handled by debounce below
 
+  // Re-fetch when page or filter changes immediately
   useEffect(() => { load(); }, [load]);
-  useEffect(() => { const t = setTimeout(load, 400); return () => clearTimeout(t); }, [search]); // eslint-disable-line
+
+  // Debounce search separately to avoid firing on every keystroke
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setLoading(true);
+      clientsApi.list({ page: 1, limit: 12, search: search || undefined, type: filter || undefined })
+        .then(res => {
+          setClients(res.data.data || []);
+          setMeta(res.data.meta   || { total: 0, pages: 1 });
+        })
+        .catch(console.error)
+        .finally(() => setLoading(false));
+    }, 350);
+    return () => clearTimeout(t);
+  }, [search]); // eslint-disable-line
 
   const handleCreate = async () => {
     if (!form.business_name.trim()) return;
@@ -80,11 +99,11 @@ export default function ClientsList() {
           <select
             value={filter}
             onChange={e => { setFilter(e.target.value); setPage(1); }}
-            className="input w-36 cursor-pointer"
+            className="input w-40 cursor-pointer"
           >
             <option value="">All Types</option>
             {TYPES.map(t => (
-              <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>
+              <option key={t} value={t}>{TYPE_LABEL[t]}</option>
             ))}
           </select>
         </div>
@@ -146,7 +165,7 @@ export default function ClientsList() {
           <Select label="Type *" value={form.type}
                   onChange={e => setForm(f => ({ ...f, type: e.target.value }))}>
             {TYPES.map(t => (
-              <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>
+              <option key={t} value={t}>{TYPE_LABEL[t]}</option>
             ))}
           </Select>
           <div className="grid grid-cols-2 gap-3">
@@ -177,7 +196,10 @@ export default function ClientsList() {
 
 // ── Client Card ──────────────────────────────────────────────
 function ClientCard({ client, onView, onDelete }) {
-  const typeColors = { cafe: 'cafe', restaurant: 'restaurant', company: 'company', other: 'other' };
+  const typeColors = {
+    cafe: 'cafe', restaurant: 'restaurant', company: 'company', other: 'other',
+    bakery: 'warning', cake_shop: 'purple', store: 'primary',
+  };
 
   return (
     <div className="card hover:shadow-card-hover transition-all group relative">
@@ -197,7 +219,7 @@ function ClientCard({ client, onView, onDelete }) {
                         flex items-center justify-center text-white font-700 text-lg shadow-sm">
           {client.business_name?.[0]?.toUpperCase() || '?'}
         </div>
-        <Badge variant={typeColors[client.type] || 'default'}>{client.type}</Badge>
+        <Badge variant={typeColors[client.type] || 'default'}>{TYPE_LABEL[client.type] || client.type}</Badge>
       </div>
 
       <h3 className="text-sm font-600 text-gray-900 truncate">{client.business_name}</h3>
