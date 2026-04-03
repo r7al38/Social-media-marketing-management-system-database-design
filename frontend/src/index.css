@@ -42,7 +42,7 @@
   /* Table */
   .data-table { @apply w-full text-sm; }
   .data-table thead tr { @apply border-b border-border; }
-  .data-table thead th { @apply text-left py-3 px-4 text-xs font-600 text-muted uppercase tracking-wide; }
+  .data-table thead th { @apply text-left py-3 px-4 text-xs font-semibold text-muted uppercase tracking-wide; }
   .data-table tbody tr { @apply border-b border-border/60 hover:bg-surface transition-colors; }
   .data-table tbody td { @apply py-3 px-4 text-gray-700; }
 
