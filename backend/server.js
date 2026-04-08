@@ -2,20 +2,19 @@
 
 require('dotenv').config();
 
-const express     = require('express');
-const helmet      = require('helmet');
-const cors        = require('cors');
-const morgan      = require('morgan');
-const rateLimit   = require('express-rate-limit');
-const path        = require('path');
-const fs          = require('fs');
+const express   = require('express');
+const helmet    = require('helmet');
+const cors      = require('cors');
+const morgan    = require('morgan');
+const rateLimit = require('express-rate-limit');
+const path      = require('path');
+const fs        = require('fs');
 
 const logger             = require('./utils/logger');
 const { initDatabase }   = require('./database/init');
 const { startScheduler } = require('./scheduler');
 const { notFound, errorHandler } = require('./middleware/errorHandler');
 
-// ── Route modules ─────────────────────────────────────────────
 const authRoutes         = require('./routes/auth');
 const clientRoutes       = require('./routes/clients');
 const serviceRoutes      = require('./routes/services');
@@ -33,34 +32,42 @@ const PORT = process.env.PORT || 5000;
 const PROD = process.env.NODE_ENV === 'production';
 
 // ── Security ──────────────────────────────────────────────────
-app.use(helmet({
-  contentSecurityPolicy: false, // disabled so React SPA assets load
-}));
+app.use(helmet({ contentSecurityPolicy: false }));
 
-// CORS: in production the frontend is served from the same origin,
-// so we only need CORS for local dev (React dev server on :3000)
+// ── CORS ──────────────────────────────────────────────────────
+// In production the React build is served from the same Express process,
+// so same-origin applies and we allow all.
+// In dev we allow localhost:3000 (Vite dev server).
+// On Replit, the frontend and backend are on the same domain, so true === works.
+const allowedOrigins = PROD
+  ? true   // same-origin — no CORS header needed; "true" means reflect origin
+  : ['http://localhost:3000', 'http://127.0.0.1:3000'];
+
 app.use(cors({
-  origin: PROD ? false : 'http://localhost:3000',
+  origin: allowedOrigins,
   credentials: true,
+  methods: ['GET','POST','PUT','PATCH','DELETE','OPTIONS'],
+  allowedHeaders: ['Content-Type','Authorization'],
 }));
 
-app.use(express.json({ limit: '1mb' }));
+// ── Body parsing ──────────────────────────────────────────────
+app.use(express.json({ limit: '2mb' }));
 app.use(express.urlencoded({ extended: false }));
 
-// Compact request logging
+// ── Logging ───────────────────────────────────────────────────
 if (!PROD) {
   app.use(morgan('dev'));
 } else {
   app.use(morgan('combined', {
     stream: { write: (m) => logger.info(m.trim()) },
-    skip: (req) => req.url.startsWith('/api/health'),
+    skip: (req) => req.url === '/api/health',
   }));
 }
 
 // ── Rate limiting ─────────────────────────────────────────────
 app.use('/api/auth', rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 20,
+  max: 30,
   standardHeaders: true,
   legacyHeaders: false,
   message: { success: false, message: 'Too many login attempts. Try again in 15 minutes.' },
@@ -68,9 +75,10 @@ app.use('/api/auth', rateLimit({
 
 app.use('/api', rateLimit({
   windowMs: 60 * 1000,
-  max: 300,
+  max: 500,
   standardHeaders: true,
   legacyHeaders: false,
+  message: { success: false, message: 'Too many requests.' },
 }));
 
 // ── API routes ────────────────────────────────────────────────
@@ -87,38 +95,29 @@ app.use('/api/notifications',   notificationRoutes);
 app.use('/api/reports',         reportsRoutes);
 
 // ── Health check ──────────────────────────────────────────────
-app.get('/api/health', (req, res) => {
+app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', env: process.env.NODE_ENV, ts: new Date().toISOString() });
 });
 
 // ── Serve React static build ──────────────────────────────────
-// The React app is built to frontend/dist/
-// Express serves it as static files and handles client-side routing
 const DIST = path.resolve(__dirname, '../frontend/dist');
-
 if (fs.existsSync(DIST)) {
   app.use(express.static(DIST, { maxAge: PROD ? '1d' : 0 }));
-
-  // Any non-API route → return index.html (React Router handles it)
-  app.get('*', (req, res) => {
-    res.sendFile(path.join(DIST, 'index.html'));
-  });
-
+  app.get('*', (_req, res) => res.sendFile(path.join(DIST, 'index.html')));
   logger.info(`Serving React build from: ${DIST}`);
 } else {
-  // Frontend not built yet — show a helpful message
-  app.get('/', (req, res) => {
+  app.get('/', (_req, res) => {
     res.send(`
-      <h2>SMM Dashboard — Backend Running ✓</h2>
+      <h2>SMM Dashboard — Backend OK ✓</h2>
       <p>Frontend not built yet.</p>
       <p>Run: <code>cd frontend && npm install && npm run build</code></p>
-      <p>API health: <a href="/api/health">/api/health</a></p>
+      <p><a href="/api/health">Health check</a></p>
     `);
   });
   logger.warn(`Frontend dist not found at ${DIST}. Run: npm run build`);
 }
 
-// ── Error handlers ────────────────────────────────────────────
+// ── Error handlers (must be last) ────────────────────────────
 app.use(notFound);
 app.use(errorHandler);
 
@@ -128,19 +127,17 @@ function start() {
     initDatabase();
     startScheduler();
     app.listen(PORT, '0.0.0.0', () => {
-      logger.info(`──────────────────────────────────────`);
+      logger.info('──────────────────────────────────');
       logger.info(`  SMM Dashboard running`);
-      logger.info(`  URL : http://localhost:${PORT}`);
-      logger.info(`  ENV : ${process.env.NODE_ENV || 'development'}`);
-      logger.info(`  DB  : ${process.env.DB_PATH || './database/smm.db'}`);
-      logger.info(`──────────────────────────────────────`);
+      logger.info(`  http://localhost:${PORT}`);
+      logger.info(`  ENV: ${process.env.NODE_ENV || 'development'}`);
+      logger.info('──────────────────────────────────');
     });
   } catch (err) {
-    logger.error('Failed to start server:', err);
+    logger.error('Failed to start:', err);
     process.exit(1);
   }
 }
 
 start();
-
 module.exports = app;
