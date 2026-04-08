@@ -2,27 +2,27 @@
 
 const CryptoJS = require('crypto-js');
 
-const KEY = process.env.ENCRYPTION_KEY || 'fallback_dev_key_32_characters!!';
+// Key must be present; falls back to a dev key so the app doesn't crash.
+// In production, always set ENCRYPTION_KEY in Replit Secrets.
+const KEY = process.env.ENCRYPTION_KEY || 'dev_fallback_key_32_chars_minimum';
 
-/**
- * Encrypts a plaintext string using AES-256.
- * @param {string} plaintext
- * @returns {string} Encrypted ciphertext
- */
 function encrypt(plaintext) {
   if (!plaintext) return null;
-  return CryptoJS.AES.encrypt(plaintext, KEY).toString();
+  try {
+    return CryptoJS.AES.encrypt(String(plaintext), KEY).toString();
+  } catch {
+    return null;
+  }
 }
 
-/**
- * Decrypts an AES-256 ciphertext string.
- * @param {string} ciphertext
- * @returns {string} Decrypted plaintext
- */
 function decrypt(ciphertext) {
   if (!ciphertext) return null;
-  const bytes = CryptoJS.AES.decrypt(ciphertext, KEY);
-  return bytes.toString(CryptoJS.enc.Utf8);
+  try {
+    const bytes = CryptoJS.AES.decrypt(ciphertext, KEY);
+    return bytes.toString(CryptoJS.enc.Utf8) || null;
+  } catch {
+    return null;
+  }
 }
 
 module.exports = { encrypt, decrypt };
